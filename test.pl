@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl -sw
 
-print "1..38\n";
+print "1..42\n";
 
 use Quantum::Superpositions
 	UNARY => ['CORE::int'];
@@ -95,3 +95,11 @@ use Quantum::Superpositions BINARY_LOGICAL => ['main::odder'];
 
 TEST odder(any(1234,2468), 666), any(1234), "true";
 TEST odder(any(1234,2468), 666), 1234, "true";
+
+if ($] >= 5.006) {
+	TEST any(sub{1 . shift()}, sub{pop() . 2})->("a", "z"), any("1a","z2"), "true";
+	TEST all(sub{1 . shift()}, sub{pop() . 2})->("z", "a"), all("1z","a2");
+}
+else {
+	TEST 1,1,1 for (1..2);
+}

@@ -1,5 +1,5 @@
 ==============================================================================
-              Release of version 1.01 of Quantum::Superpositions
+              Release of version 1.02 of Quantum::Superpositions
 ==============================================================================
 
 
@@ -34,14 +34,12 @@ COPYRIGHT
 
 ==============================================================================
 
-CHANGES IN VERSION 1.01
+CHANGES IN VERSION 1.02
 
 
-	- Fixed pod bug (=haed2 -> =head2)
+	- Fixed 5.6.0 compatibility
 
-	- Added Makefile.pm PREREQ_PM for Class::Multimethods
-
-	[Still working on 5.6.0 compatibility]
+	- Added ability to superimpose subroutine references.
 
 
 ==============================================================================

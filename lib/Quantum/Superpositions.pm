@@ -1,4 +1,4 @@
-package Quantum::Superpositions; $VERSION = '1.01';
+package Quantum::Superpositions; $VERSION = '1.02';
 use Carp;
 
 sub debug { 
@@ -247,10 +247,12 @@ use overload
 	q{neg}	=>  sub { $_[0]->quop(sub { -$_[0]     })},
 	q{~}	=>  sub { $_[0]->quop(sub { ~$_[0]     })},
 
-	q{&{}}	=>  sub { croak "Subroutine dereferencing not yet available" },
-	q{${}}	=>  sub { croak "Scalar dereferencing not yet available" },
-	q{%{}}	=>  sub { croak "Superimposed hashes not yet implemented" },
-	q{@{}}	=>  sub { croak "Superimposed array not yet available" },
+        q{&{}}  =>  sub { my $s = shift;
+                          return sub {
+                                bless [map {$_->(@_[1..$#_])} @$s],
+                                      ref $s
+                          }
+                        },
 
 	q{!}	=>  sub { $_[0]->qulop(sub { !$_[0]     })},
 
@@ -362,7 +364,7 @@ Quantum::Superpositions - QM-like superpositions in Perl
 
 =head1 VERSION
 
-This document describes version 1.01 of Quantum::Superpositions,
+This document describes version 1.02 of Quantum::Superpositions,
 released August 10, 2000.
 
 =head1 SYNOPSIS

@@ -12,3 +12,10 @@ Revision history for Perl extension Quantum::Superpositions.
 	- Added Makefile.pm PREREQ_PM for Class::Multimethods
 
 	[Still working on 5.6.0 compatibility]
+
+
+1.02	Thu Aug 10 10:19:30 2000
+
+	- Fixed 5.6.0 compatibility
+
+	- Added ability to superimpose subroutine references.
