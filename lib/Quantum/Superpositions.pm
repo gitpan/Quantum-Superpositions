@@ -1,223 +1,492 @@
+
 package Quantum::Superpositions;
-$VERSION = '1.05';
+
+########################################################################
+# housekeeping
+########################################################################
+
+use strict;
+
 use Carp;
+use Class::Multimethods;
 
-sub debug { 
-	# print +(caller(1))[3], "(";
-	# print +overload::StrVal($_), "," for @_;
-	# print ")\n";
+our $VERSION = '2.00';
 
+sub import
+{
+	{
+		my $caller = caller;
+
+		no strict 'refs';
+
+		*{ $caller . '::' . $_ } = __PACKAGE__->can( $_ )
+			for qw( all any eigenstates );
+	}
+
+	my ($class, %quantized) = @_;
+
+	quantize_unary($_,'quop')   for @{$quantized{UNARY}};
+	quantize_unary($_,'qulop')  for @{$quantized{UNARY_LOGICAL}};
+
+	quantize_binary($_,'qbop')  for @{$quantized{BINARY}};
+	quantize_binary($_,'qblop') for @{$quantized{BINARY_LOGICAL}};
+
+
+	1
 }
 
-sub quantize_unary {
+########################################################################
+# utility subroutines and package variables
+#
+# these are small enough to get lost in the shuffle. easier to put them
+# up here than loose 'em...
+########################################################################
+
+# used to print intermediate results if $debug is true.
+
+my $debug = 0;
+
+sub debug
+{ 
+	print +(caller(1))[3], "(";
+	print +overload::StrVal($_), "," for @_;
+	print ")\n";
+}
+
+# cleans up overloaded calls.
+
+sub swap { $_[2] ? @_[1,0] : @_[0,1] }
+
+# eigencache tracks objects results. destructor has to clean
+# out the cache. due to overloading this cannot simply use 
+# the $hash{$referent} trick.
+
+my %eigencache;
+
+sub DESTROY { delete $eigencache{overload::StrVal($_[0])}; }
+
+# replaces the cartesian product with an iterator. normal use is 
+# something like:
+#
+#	my ( $n, $sub ) = iterator \@list1, \@list2
+#
+#	my @result = map { somefunc @$sub->() } (1..$n );
+#
+# note the limit check on $j: this returns an empty list
+# after the process has iterated once. this allows for
+# while( @pair = $iter->() ){ ... } and gracefully handles
+# (0..$count) also.
+
+sub iterator
+{
+	my ( $a, $b ) = ( shift, shift );
+	my ( $i, $j ) = ( -1, -1 );
+
+	# caller gets back ( iterator count, closure ).
+	(
+		@$a * @$b,
+
+		sub
+		{
+			$i = ++$i % @$a;
+			++$j unless $i;
+
+			$j < @$b ? [ $a->[$i], $b->[$j] ] : ()
+		}
+	)
+}
+
+
+########################################################################
+# what users call. the rest of this stuff is generally called
+# indirectly via multimethods on the contents of the objects.
+
+sub any   { bless [@_], 'Quantum::Superpositions::Disj' }
+sub all   { bless [@_], 'Quantum::Superpositions::Conj' }
+
+sub all_true { bless [@_], 'Quantum::Superpositions::Conj::True' }
+
+
+########################################################################
+# what the hell do these really do?
+
+sub quantize_unary
+{
 	my ($fullsubname, $type) = @_;
-	my ($package,$subname) = m/(.*)::(.*)/;
+
+	my ($package,$subname) = m/(.+)::(.+)$/;
+
 	my $caller = caller;
+
 	my $original = "CORE::$subname";
-	if ($package ne 'CORE') {
+
+	if( $package ne 'CORE' )
+	{
 		$original = "Quantum::Superpositions::Quantized::$fullsubname";
+
+		no strict;
+
 		*{$original} = \&$fullsubname;
 	}
-	else {
+	else
+	{
 		$package = 'CORE::GLOBAL';
 	}
-	eval qq{
+
+	eval
+	qq{
 		package $package;
+
 		use subs '$subname';
+
 		use Class::Multimethods '$type';
 		local \$SIG{__WARN__} = sub{};
-		*{"${package}::$subname"} = sub {
+
+		no strict 'refs';
+
+		*{"${package}::$subname"} =
+		sub
+		{
 			local \$^W;
 			return \$_[0]->$type(sub{$original(\$_[0])})
 			    if UNIVERSAL::isa(\$_[0],'Quantum::Superpositions')
 			    || UNIVERSAL::isa(\$_[1],'Quantum::Superpositions');
+
+			no strict 'refs';
+
 			return $original(\$_[0]);
 		};
-	} || croak "Internal error: $@";
+	}
+	|| croak "Internal error: $@";
 } 
 
-sub quantize_binary {
+sub quantize_binary
+{
 	my ($fullsubname, $type) = @_;
 	my ($package,$subname) = m/(.*)::(.*)/;
 	my $caller = caller;
 	my $original = "CORE::$subname";
-	if ($package ne 'CORE') {
+	if ($package ne 'CORE')
+	{
 		$original = "Quantum::Superpositions::Quantized::$fullsubname";
+
+		no strict;
+
 		*{$original} = \&$fullsubname;
 	}
-	else {
+	else
+	{
 		$package = 'CORE::GLOBAL';
 	}
-	eval qq{
+	eval
+	qq{
 		package $package;
 		use subs '$subname';
+
 		use Class::Multimethods '$type';
+
 		local \$SIG{__WARN__} = sub{};
-		*{"${package}::$subname"} = sub {
+
+		no strict 'refs';
+
+		*{"${package}::$subname"} =
+		sub
+		{
 			local \$^W;
 			return $type(\@_[0,1],sub{$original(\$_[0],\$_[1])})
 			    if UNIVERSAL::isa(\$_[0],'Quantum::Superpositions')
 			    || UNIVERSAL::isa(\$_[1],'Quantum::Superpositions');
+
+			no strict 'refs';
+
 			return $original(\$_[0],\$_[1]);
 		};
 	} || croak "Internal error: $@";
 }
 
+########################################################################
+# assign the multimethods operations for various types
 
-sub import {
-	*{caller().'::'.$_} = \&$_
-		foreach qw(all any eigenstates);
-	my ($class, %quantized) = @_;
-	quantize_unary($_,'quop')   foreach @{$quantized{UNARY}};
-	quantize_unary($_,'qulop')  foreach @{$quantized{UNARY_LOGICAL}};
-	quantize_binary($_,'qbop')  foreach @{$quantized{BINARY}};
-	quantize_binary($_,'qblop') foreach @{$quantized{BINARY_LOGICAL}};
-	1;
-}
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Conj
+	Quantum::Superpositions::Conj
+	CODE
 
-sub qsbless {
-	my ($ref, $class) = @_;
-	my %states; @states{@$ref}=();
-	# return if keys %states == 0;
-	return $ref->[0] if keys %states == 1;
-	return bless $ref, $class;
-}
+) ) =>
+sub
+{
+	# return all map { qbop(@$_, $_[2]) } cross $_[0], $_[1];
 
-sub any { qsbless [@_], Quantum::Superpositions::Disj }
-sub all { qsbless [@_], Quantum::Superpositions::Conj }
+	my ( $count, $iter ) = iterator @_[0,1];
 
-sub all_true { qsbless [@_], Quantum::Superpositions::Conj::True }
-sub any_comp { qsbless [@_], Quantum::Superpositions::Disj::Comp }
+	all map { qbop(@{$iter->()}, $_[2]) } (1..$count);
+};
 
-sub cross {
-	my @product;
-	foreach my $a ( @{$_[0]} ) {
-		foreach my $b ( @{$_[1]} ) {
-			push @product, [$a,$b];
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Disj
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	# return any map { qbop(@$_, $_[2]) } cross $_[0], $_[1]
+
+	my ( $count, $iter ) = iterator( @_[0,1] );
+
+	any map { qbop(@{$iter->()}, $_[2]) } (1..$count);
+};
+
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Conj
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	all map { qbop($_, $_[1], $_[2]) } @{$_[0]};
+};
+
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Disj
+	Quantum::Superpositions::Conj
+	CODE
+) ) =>
+sub
+{
+	any map { qbop($_, $_[1], $_[2]) } @{$_[0]}
+};
+
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Conj
+	*
+	CODE
+) ) =>
+sub
+{
+	all map { qbop($_, $_[1], $_[2]) } @{$_[0]}
+};
+
+multimethod qbop =>
+( qw(
+	Quantum::Superpositions::Disj
+	*
+	CODE
+) ) =>
+sub
+{
+	any map { qbop($_, $_[1], $_[2]) } @{$_[0]}
+};
+
+multimethod qbop =>
+( qw(
+	*
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	any map { qbop($_[0], $_, $_[2]) } @{$_[1]}
+};
+
+multimethod qbop =>
+( qw(
+	*
+	Quantum::Superpositions::Conj
+	CODE
+) ) =>
+sub
+{
+	all map { qbop($_[0], $_, $_[2]) } @{$_[1]}
+};
+
+multimethod qbop =>
+( qw(
+	*
+	*
+	CODE
+) ) =>
+sub
+{
+	$_[2]->(@_[0..1])
+};
+
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Conj
+	Quantum::Superpositions::Conj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
+	return all() unless @{$_[0]} && @{$_[1]};
+
+	my ( $count, $iter ) = iterator @_[0,1];
+
+	istrue( qblop(@{$iter->()}, $_[2]) ) || return all() for (1..$count);
+
+	all_true @{$_[0]};
+};
+
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Conj
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
+	return all() unless @{$_[0]} && @{$_[1]};
+
+	my @cstates = @{$_[0]};
+
+	my @matchstates;
+
+	my $okay = 0;
+
+	for my $cstate ( @cstates )
+	{
+		for my $dstate ( @{$_[1]} )
+		{
+			++$okay && last
+				if istrue(qblop($cstate, $dstate, $_[2]));
 		}
 	}
-	return @product;
-}
 
-use Class::Multimethods;
-
-multimethod qbop => ( Quantum::Superpositions::Conj, Quantum::Superpositions::Conj, CODE ) => sub {
-	return all map { qbop(@$_, $_[2]) } cross $_[0], $_[1];
-};
-
-multimethod qbop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::Disj, CODE ) => sub {
-	return any map { qbop(@$_, $_[2]) } cross $_[0], $_[1];
-};
-
-multimethod qbop => ( Quantum::Superpositions::Conj, Quantum::Superpositions::Disj, CODE ) => sub {
-	return all map { qbop($_, $_[1], $_[2]) } @{$_[0]};
-};
-
-multimethod qbop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::Conj, CODE ) => sub {
-	return any map { qbop($_, $_[1], $_[2]) } @{$_[0]};
-};
-
-multimethod qbop => ( Quantum::Superpositions::Conj, '*', CODE ) => sub {
-	return all map { qbop($_, $_[1], $_[2]) } @{$_[0]};
-};
-
-multimethod qbop => ( Quantum::Superpositions::Disj, '*', CODE ) => sub {
-	return any map { qbop($_, $_[1], $_[2]) } @{$_[0]};
-};
-
-multimethod qbop => ( '*', Quantum::Superpositions::Disj, CODE ) => sub {
-	return any map { qbop($_[0], $_, $_[2]) } @{$_[1]};
-};
-
-multimethod qbop => ( '*', Quantum::Superpositions::Conj, CODE ) => sub {
-	return all map { qbop($_[0], $_, $_[2]) } @{$_[1]};
-};
-
-multimethod qbop => ( '*', '*', CODE ) => sub {
-	return $_[2]->(@_[0..1]);
-};
-
-multimethod qblop => ( Quantum::Superpositions::Conj, Quantum::Superpositions::Conj, CODE ) => sub {
-	&debug;
-	return all() unless @{$_[0]} && @{$_[1]};
-	istrue(qblop(@$_, $_[2])) || return all() foreach cross @_[0..1];
-	return all_true @{$_[0]};
-};
-
-multimethod qblop => ( Quantum::Superpositions::Conj, Quantum::Superpositions::Disj, CODE ) => sub {
-	&debug;
-	return all() unless @{$_[0]} && @{$_[1]};
-	my @cstates = @{$_[0]};
-	my @matchstates;
-	my $okay = 0;
-        foreach my $cstate ( @cstates ) {
-                foreach my $dstate ( @{$_[1]} ) {
-                        ++$okay && last
-				if istrue(qblop($cstate, $dstate, $_[2]));
-                }
-        }
 	return all() unless $okay == @cstates;
 	return all_true @{$_[0]};
 };
 
-multimethod qblop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::Conj, CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Disj
+	Quantum::Superpositions::Conj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return any() unless @{$_[0]} && @{$_[1]};
+
 	my @dstates = @{$_[0]};
 	my @cstates = @{$_[1]};
+
 	my @dokay = (0) x @dstates;
-        foreach my $cstate ( @cstates ) {
-		my $matched;
-                foreach my $d ( 0..$#dstates ) {
-                        $matched = ++$dokay[$d]
-				if istrue(qblop($dstates[$d], $cstate, $_[2]));
-                }
-		return any() unless $matched;
-        }
-        return any_comp @dstates[grep { $dokay[$_] == @cstates } (0..$#dstates)];
+		for my $cstate ( @cstates )
+		{
+			my $matched;
+			for my $d ( 0..$#dstates )
+			{
+				$matched = ++$dokay[$d]
+					if istrue(qblop($dstates[$d], $cstate, $_[2]));
+			}
+
+			return any() unless $matched;
+		}
+
+		return any @dstates[grep { $dokay[$_] == @cstates } (0..$#dstates)];
 };
 
-multimethod qblop => ( Quantum::Superpositions::Conj, '*', CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Conj
+	*
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return all() unless @{$_[0]};
-	istrue(qblop($_, $_[1], $_[2])) || return all() foreach @{$_[0]};
+	istrue(qblop($_, $_[1], $_[2])) || return all() for @{$_[0]};
 	return all_true @{$_[0]};
 };
 
-multimethod qblop => ( '*', Quantum::Superpositions::Conj, CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	*
+	Quantum::Superpositions::Conj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return all() unless @{$_[1]};
-	istrue(qblop($_[0], $_, $_[2])) || return all() foreach @{$_[1]};
+	istrue(qblop($_[0], $_, $_[2])) || return all() for @{$_[1]};
 	return all_true $_[0];
 };
 
-multimethod qblop => ( Quantum::Superpositions::Disj, '*', CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Disj
+	*
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return any() unless @{$_[0]};
-	return any_comp grep { istrue(qblop($_, $_[1], $_[2])) } @{$_[0]};
+	return any grep { istrue(qblop($_, $_[1], $_[2])) } @{$_[0]};
 };
 
-multimethod qblop => ( '*', Quantum::Superpositions::Disj, CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	*
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return any() unless @{$_[1]};
-	return any_comp grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
+	return any grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
 };
 
-multimethod qblop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::Disj, CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	Quantum::Superpositions::Disj
+	Quantum::Superpositions::Disj
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return any() unless @{$_[0]} && @{$_[1]};
-	return any_comp grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
+	return any grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
 };
 
-multimethod qblop => ( '*', '*', CODE ) => sub {
-	&debug;
+multimethod qblop =>
+( qw(
+	*
+	*
+	CODE
+) ) =>
+sub
+{
+	&debug if $debug;
+
 	return qbop(@_) ? $_[0] : ();
 };
 
-
-sub swap { $_[2] ? @_[1,0] : @_[0,1] }
+########################################################################
+# overload everything possible into appropraite multimethods.
+# this is where the limitation for regexen hits. 
 
 use overload
+
 	q{+}	=>  sub { qbop(swap(@_), sub { $_[0] + $_[1]  })},
 	q{-}	=>  sub { qbop(swap(@_), sub { $_[0] - $_[1]  })},
 	q{*}	=>  sub { qbop(swap(@_), sub { $_[0] * $_[1]  })},
@@ -257,36 +526,31 @@ use overload
 	q{neg}	=>  sub { $_[0]->quop(sub { -$_[0]     })},
 	q{~}	=>  sub { $_[0]->quop(sub { ~$_[0]     })},
 
-        q{&{}}  =>  sub { my $s = shift;
-                          return sub { qsbless [map {$_->(@_)} @$s], ref $s }
-                        },
+	q{&{}}  => 
+	sub
+	{
+		my $s = shift;
+		return sub { bless [map {$_->(@_)} @$s], ref $s }
+	},
 
 	q{!}	=>  sub { $_[0]->qulop(sub { !$_[0]     })},
 
 	q{bool}	=>  'qbool',
 	q{""}	=>  'qstr',
 	q{0+}	=>  'qnum',
-	;
+;
 
-sub AUTOLOAD { # METHODS
-        my $s = shift;
-	$AUTOLOAD =~ s/.*:://;
-        return qsbless [map {$_->$AUTOLOAD(@_)} @$s], ref $s if wantarray;
-        return qsbless [map {scalar $_->$AUTOLOAD(@_)} @$s], ref $s;
-}
+########################################################################
+# extract results from the Q::S objects.
 
+multimethod collapse =>
+( 'Quantum::Superpositions' ) =>
+	sub { return map { collapse($_) } @{$_[0]} };
 
-multimethod collapse => ( Quantum::Superpositions ) => sub {
-	return map { collapse($_) } @{$_[0]}
-};
+multimethod collapse => ( '*' ) => sub { return $_[0] };
 
-multimethod collapse => ( '*' ) => sub {
-	return $_[0]
-};
-
-my %eigencache;
-
-sub eigenstates($) {
+sub eigenstates($)
+{
 	my ($self) = @_;
 	my $eigencache_id = overload::StrVal($self);
 	return @{$eigencache{$eigencache_id}}
@@ -294,90 +558,89 @@ sub eigenstates($) {
 	my %uniq;
 	@uniq{collapse($self)} = ();
 	local $^W=1;
-	@{$eigencache{$eigencache_id}} = grep {
-		      my $okay=1;
-		      local $SIG{__WARN__} = sub {$okay=0};
-		      istrue($self eq $_) || istrue($self == $_) && $okay
-		    } keys %uniq;
-	return @{$eigencache{$eigencache_id}};
+	return @{$eigencache{$eigencache_id}} =
+		grep
+		{
+		  my $okay=1;
+		  local $SIG{__WARN__} = sub {$okay=0};
+		  istrue($self eq $_) || istrue($self == $_) && $okay
+		}
+		keys %uniq;
 }
 
-sub DESTROY {
-	delete $eigencache{overload::StrVal($_[0])};
-}
+multimethod istrue => ( 'Quantum::Superpositions::Disj' ) =>
+	sub
+	{
+		my @states = @{$_[0]} || return 0;
+		istrue($_) && return 1 for @states; return 0;
+	};
 
-multimethod istrue => ( Quantum::Superpositions::Disj ) => sub {
-	my @states = @{$_[0]} || return 0;
-	istrue($_) && return 1 foreach @states; return 0;
-};
+multimethod istrue => ( 'Quantum::Superpositions::Conj::True' ) =>
+	sub { return 1; };
 
-multimethod istrue => ( Quantum::Superpositions::Conj::True ) => sub {
-	return 1;
-};
+multimethod istrue => ( 'Quantum::Superpositions::Conj' ) =>
+	sub
+	{
+		my @states = @{$_[0]} || return 0;
+		istrue($_) || return 0 for @states; return 1;
+	};
 
-multimethod istrue => ( Quantum::Superpositions::Conj ) => sub {
-	my @states = @{$_[0]} || return 0;
-	istrue($_) || return 0 foreach @states; return 1;
-};
+multimethod istrue => ( '*' ) => sub { return defined $_[0]; };
 
-multimethod istrue => ( '*' ) => sub {
- 	return defined $_[0];
-};
+multimethod istrue => () => sub { return 0; };
 
-multimethod istrue => () => sub {
- 	return 0;
-};
-
+sub qbool { $_[0]->eigenstates ? 1 : 0; }
 sub qnum  { my @states = $_[0]->eigenstates; return $states[rand @states] }
 
+########################################################################
+########################################################################
+# embedded classes.
+#
+# these are what the constructors bless things into.
+########################################################################
+
 package Quantum::Superpositions::Disj;
-$VERSION = '1.04';
 use base 'Quantum::Superpositions';
+use Carp;
 
-sub qbool { scalar grep { !!$_ } @{$_[0]} }
+sub qstr
+{
+	my @eigenstates = $_[0]->eigenstates;
+   return "@eigenstates" if @eigenstates == 1;
+   return "any(".join(",",@eigenstates).")"
+}
 
-sub qstr { my @eigenstates = $_[0]->eigenstates;
-	   return "@eigenstates" if @eigenstates == 1;
-	   return "any(".join(",",@eigenstates).")" }
+sub quop  { Quantum::Superpositions::any(map  { $_[1]->($_) } @{$_[0]}) }
 
-sub quop {
-	return Quantum::Superpositions::any(map { $_[1]->($_) } @{$_[0]});
-};
+sub qulop { Quantum::Superpositions::any(grep { $_[1]->($_) } @{$_[0]}) }
 
-sub qulop {
-	return Quantum::Superpositions::any(grep { $_[1]->($_) } @{$_[0]});
-};
-
-package Quantum::Superpositions::Disj::Comp;
-$VERSION = '1.04';
-use base 'Quantum::Superpositions::Disj';
-sub qbool { $_[0]->eigenstates ? 1 : 0; }
 
 package Quantum::Superpositions::Conj;
-$VERSION = '1.04';
 use base 'Quantum::Superpositions';
+use Carp;
 
-sub qbool { $_[0]->eigenstates ? 1 : 0; }
+sub qstr
+{
+	my @eigenstate = $_[0]->eigenstates;
 
-sub qstr { my @eigenstate = $_[0]->eigenstates;
-	   return "@eigenstate" if @eigenstate;
-	   return "all(".join(",",@{$_[0]}).")" }
+	@eigenstate ? "@eigenstate" : "all(".join(",",@{$_[0]}).")" 
+}
 
-sub quop {
-	return Quantum::Superpositions::all(map { $_[1]->($_) } @{$_[0]});
-};
+sub quop { return Quantum::Superpositions::all(map { $_[1]->($_) } @{$_[0]}) }
 
-sub qulop {
-	$_[1]->($_) || return Quantum::Superpositions::all() foreach @{$_[0]};
-	return Quantum::Superpositions::all(@{$_[0]});
-};
+sub qulop
+{
+	$_[1]->($_) || return Quantum::Superpositions::all() for @{$_[0]};
+
+	Quantum::Superpositions::all(@{$_[0]})
+}
 
 
 package Quantum::Superpositions::Conj::True;
-$VERSION = '1.04';
 use base 'Quantum::Superpositions::Conj';
 
 sub qbool { 1 }
+
 
 1;
 
@@ -389,8 +652,8 @@ Quantum::Superpositions - QM-like superpositions in Perl
 
 =head1 VERSION
 
-This document describes version 1.04 of Quantum::Superpositions,
-released May 15, 2002.
+This document describes version 1.03 of Quantum::Superpositions,
+released August 11, 2000.
 
 =head1 SYNOPSIS
 
@@ -400,7 +663,7 @@ released May 15, 2002.
 
 	while ($nextval < all(@thresholds)) { ... }
 
-	$max = any(@value) >= all(@values);
+	$max = any(@value) < all(@values);
 
 
 	use Quantum::Superpositions BINARY => [ CORE::index ];
@@ -567,8 +830,10 @@ superpositions:
 Operations involving such a composite superposition operate recursively and in parallel on each its states individually and then 
 recompose the result. For example:
 
-        while (@features = get_description) {
-                if (any(@features) eq $ideal) {
+        while (@features = get_description)
+		{
+                if (any(@features) eq $ideal)
+				{
                         print "True love";
                 }
         }
@@ -621,7 +886,8 @@ possible to determine if any number in the
 array C<@newnums> is less than all those in the 
 array C<@oldnums> with:
 
-        if (any(@newnums) < @all(oldnums)) {
+        if (any(@newnums) < @all(oldnums))
+		{
           print "New minimum detected";
         }
 
@@ -678,20 +944,17 @@ responsible for its success:
 
         $newmins = any(@newnums) < all(@oldnums);
 
-        if ($newmins) {
+        if ($newmins)
+		{
                 print "New minima found:", eigenstates($newmins);
         }
 
 Thus, these semantics provide a mechanism 
 to conduct parallel searches for minima and maxima :
 
-        sub min {
-          eigenstates( any(@_) <= all(@_) ) 
-        }
+        sub min { eigenstates( any(@_) <= all(@_) ) }
 
-        sub max {
-          eigenstates( any(@_) >= all(@_) ) 
-        } 
+        sub max { eigenstates( any(@_) >= all(@_) ) } 
 
 These definitions are also quite intuitive, almost declarative: the minimum is any value 
 that is less-than-or-equal-to all of the other 
@@ -802,7 +1065,8 @@ by returning the quantum computing's favourite adversary: prime numbers.
 Here, for example is an O(1) prime-number tester, based on naive
 trial division:
 
-        sub is_prime {
+        sub is_prime
+		{
           my ($n) = @_;
           return $n % all(2..sqrt($n)+1) != 0 
         }
@@ -821,7 +1085,8 @@ For example, here is a constant-time filter for
 detecting whether a number is part of a pair 
 of twin primes:
 
-        sub has_twin {
+        sub has_twin
+		{
                 my ($n) = @_;
                 return is_prime($n) && is_prime($n+any(+2,-2);
         }
@@ -863,7 +1128,8 @@ The factors of an integer N are all
 the quotients q of N/n (for all positive integers n < N) that are also integral. A positive 
 number q is integral if floor(q)==q. Hence the factors of a given number are computed by:
 
-        sub factors {
+        sub factors
+		{
           my ($n) = @_;
           my $q = $n / any(2..$n-1);
           return eigenstates(floor($q)==$q);
@@ -884,10 +1150,9 @@ For example, to determine whether a given string
 To determine which of the database strings 
 contain the target:
 
-        sub contains_str {
-                if (index($dbstr, $target) >= 0) {
-                        return $dbstr;
-                }
+        sub contains_str
+		{
+			return $dbstr if (index($dbstr, $target) >= 0;
         }
 
         $found = contains_str(any(@db), $target);
@@ -897,8 +1162,10 @@ It is also possible to superimpose the target
 string, rather than the database, so as to 
 search a single string for any of a set of targets:
 
-        sub contains_targ {
-                if (index($dbstr, $target) >= 0) {
+        sub contains_targ
+		{
+                if (index($dbstr, $target) >= 0)
+				{
                         return $target;
                 }
         }
@@ -913,7 +1180,9 @@ or in every target simultaneously:
 
 =head1 AUTHOR
 
-Steven Lembark (lembark@wrkhros.com)
+Damian Conway (damian@conway.org)
+
+Now maintainted by Steven Lembark (lembark@wrkhors.com)
 
 =head1 BUGS
 
@@ -922,7 +1191,11 @@ Bug reports and other feedback are most welcome.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2002, Steven Lembark. All Rights Reserved.
+Copyright (c) 1998-2002, Damian Conway.
+Copyright (c) 2002, Steven Lembark
+
+All Rights Reserved.
+
 This module is free software. It may be used, redistributed
-and/or modified under the terms of the Perl Artistic License
-  (see http://www.perl.com/perl/misc/Artistic.html)
+and/or modified under the stame terms as Perl-5.6.1 (or later)
+(see http://www.perl.com/perl/misc/Artistic.html).

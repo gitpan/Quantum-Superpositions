@@ -1,6 +1,6 @@
 #! /usr/local/bin/perl
 
-use Quantum::Superpositions UNARY => ['CORE::int'];
+use Quantum::Superpositions ( UNARY => ['CORE::int'] );
 
 sub factors 
 {

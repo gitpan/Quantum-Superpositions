@@ -2,8 +2,7 @@
 
 print "1..42\n";
 
-use Quantum::Superpositions
-	UNARY => ['CORE::int'];
+use Quantum::Superpositions UNARY => ['CORE::int'];
 
 print "ok 1\n";
 

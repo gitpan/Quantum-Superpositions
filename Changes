@@ -1,8 +1,9 @@
 Revision history for Perl extension Quantum::Superpositions.
 
 0.01  Wed Sep 10 10:34:42 1997
-
 	- original version; created by h2xs 1.18
+
+
 
 1.01	Thu Aug 10 09:28:34 2000
 
@@ -24,25 +25,22 @@ Revision history for Perl extension Quantum::Superpositions.
 
 	- Fixed argument passing to superimposed subroutines.
 
+2.00	Sat Apr  5 23:41:39 CST 2003
 
-1.04	Thu Aug 17 06:10:02 2000
+- Replaced the cross product with an iterator. this means
+  that any(@these) != all(@those) does not need to generate
+  the full cartesian product up front. The prime sieve 
+  (demo/demo_Primes) now runs in reasonable time/memory.
 
-	- Added Makefile.pm PREREQ_PM for Class::Multimethods (again!)
+- Added comments to the code.
 
-1.05 Thu Aug  1 09:56:30 EDT 2002
+- Shuffled a bit of the code so that globals are defined
+  towards the top of the code. This is a maintinence 
+  issue only.
 
-	- Updated synopsis to set $max = any( @a ) >= all( @a ) instead of any < all.
-		
+- Turned on my friend and yours: strict.
 
-UNRELEASED CHANGES
+- Replaced naked strings with qw's necessary to accomodate
+  strict.
 
-	- Added Makefile.pm PREREQ_PM for Class::Multimethods
-	  (yet again -- Arrrrrrrrggggghhhhhhhh!)
-
-	- Added AUTOLOAD so it's now possible to call methods on superimposed 
-	  objects
-
-	- Patched around annoying changes in base.pm (thanks Jeremy)
-
-
-
+Still need to update a few doc bugs.

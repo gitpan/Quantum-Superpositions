@@ -1,8 +1,14 @@
 
 use ExtUtils::MakeMaker;
-WriteMakefile(
-		NAME	=> q[Quantum::Superpositions],
-		VERSION => q[1.04],
-		PREREQ_PM => {'Class::Multimethods' => 0 },
-
-	     );
+WriteMakefile
+(
+	NAME			=> 'Quantum::Superpositions',
+	VERSION_FROM	=> 'lib/Quantum/Superpositions.pm',
+	ABSTRACT		=> 'Superpositional logic in a single universe',
+	PREREQ_PM =>
+	{
+		Carp				=> 0,	# standard distribution
+		strict				=> 0,	# ditto
+		Class::Multimethods	=> 0,	# nonstandard, at best...
+	},
+);
