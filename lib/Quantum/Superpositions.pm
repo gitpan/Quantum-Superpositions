@@ -10,7 +10,7 @@ use strict;
 use Carp;
 use Class::Multimethods;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
 sub import
 {
