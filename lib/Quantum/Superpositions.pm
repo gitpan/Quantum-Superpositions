@@ -1,4 +1,4 @@
-package Quantum::Superpositions; $VERSION = '1.02';
+package Quantum::Superpositions; $VERSION = '1.03';
 use Carp;
 
 sub debug { 
@@ -248,10 +248,7 @@ use overload
 	q{~}	=>  sub { $_[0]->quop(sub { ~$_[0]     })},
 
         q{&{}}  =>  sub { my $s = shift;
-                          return sub {
-                                bless [map {$_->(@_[1..$#_])} @$s],
-                                      ref $s
-                          }
+                          return sub { bless [map {$_->(@_)} @$s], ref $s }
                         },
 
 	q{!}	=>  sub { $_[0]->qulop(sub { !$_[0]     })},
@@ -364,16 +361,16 @@ Quantum::Superpositions - QM-like superpositions in Perl
 
 =head1 VERSION
 
-This document describes version 1.02 of Quantum::Superpositions,
-released August 10, 2000.
+This document describes version 1.03 of Quantum::Superpositions,
+released August 11, 2000.
 
 =head1 SYNOPSIS
 
 	use Quantum::Superpositions;
 
-	if ($x == any($a, $b, $c) { ...  }
+	if ($x == any($a, $b, $c)) { ...  }
 
-	while ($nextval < all(@thresholds) { ... }
+	while ($nextval < all(@thresholds)) { ... }
 
 	$max = any(@value) < all(@values);
 

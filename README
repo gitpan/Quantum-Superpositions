@@ -1,5 +1,5 @@
 ==============================================================================
-              Release of version 1.02 of Quantum::Superpositions
+              Release of version 1.03 of Quantum::Superpositions
 ==============================================================================
 
 
@@ -34,12 +34,10 @@ COPYRIGHT
 
 ==============================================================================
 
-CHANGES IN VERSION 1.02
+CHANGES IN VERSION 1.03
 
 
-	- Fixed 5.6.0 compatibility
-
-	- Added ability to superimpose subroutine references.
+	- Fixed argument passing to superimposed subroutines.
 
 
 ==============================================================================

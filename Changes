@@ -19,3 +19,8 @@ Revision history for Perl extension Quantum::Superpositions.
 	- Fixed 5.6.0 compatibility
 
 	- Added ability to superimpose subroutine references.
+
+
+1.03	Fri Aug 11 05:49:28 2000
+
+	- Fixed argument passing to superimposed subroutines.
