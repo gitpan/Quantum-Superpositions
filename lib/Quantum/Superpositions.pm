@@ -1,4 +1,4 @@
-package Quantum::Superpositions; $VERSION = '1.00';
+package Quantum::Superpositions; $VERSION = '1.01';
 use Carp;
 
 sub debug { 
@@ -362,8 +362,8 @@ Quantum::Superpositions - QM-like superpositions in Perl
 
 =head1 VERSION
 
-This document describes version 1.00 of Quantum::Superpositions,
-released August  9, 2000.
+This document describes version 1.01 of Quantum::Superpositions,
+released August 10, 2000.
 
 =head1 SYNOPSIS
 
@@ -768,7 +768,7 @@ For binary functions and subroutines use:
 
 =head1 EXAMPLES
 
-=haed2 Primality testing
+=head2 Primality testing
 
 The power of programming with scalar superpositions is perhaps best seen
 by returning the quantum computing's favourite adversary: prime numbers.

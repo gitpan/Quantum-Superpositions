@@ -1,5 +1,5 @@
 ==============================================================================
-              Release of version 1.00 of Quantum::Superpositions
+              Release of version 1.01 of Quantum::Superpositions
 ==============================================================================
 
 
@@ -34,9 +34,15 @@ COPYRIGHT
 
 ==============================================================================
 
-CHANGES IN VERSION 1.00
+CHANGES IN VERSION 1.01
 
-(No changes have been documented for this version)
+
+	- Fixed pod bug (=haed2 -> =head2)
+
+	- Added Makefile.pm PREREQ_PM for Class::Multimethods
+
+	[Still working on 5.6.0 compatibility]
+
 
 ==============================================================================
 
