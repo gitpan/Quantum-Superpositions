@@ -29,6 +29,11 @@ Revision history for Perl extension Quantum::Superpositions.
 
 	- Added Makefile.pm PREREQ_PM for Class::Multimethods (again!)
 
+1.05 Thu Aug  1 09:56:30 EDT 2002
+
+	- Updated synopsis to set $max = any( @a ) >= all( @a ) instead of any < all.
+		
+
 UNRELEASED CHANGES
 
 	- Added Makefile.pm PREREQ_PM for Class::Multimethods
@@ -38,3 +43,6 @@ UNRELEASED CHANGES
 	  objects
 
 	- Patched around annoying changes in base.pm (thanks Jeremy)
+
+
+

@@ -1,5 +1,5 @@
 package Quantum::Superpositions;
-$VERSION = '1.04';
+$VERSION = '1.05';
 use Carp;
 
 sub debug { 
@@ -400,7 +400,7 @@ released May 15, 2002.
 
 	while ($nextval < all(@thresholds)) { ... }
 
-	$max = any(@value) < all(@values);
+	$max = any(@value) >= all(@values);
 
 
 	use Quantum::Superpositions BINARY => [ CORE::index ];
