@@ -10,7 +10,7 @@ use strict;
 use Carp;
 use Class::Multimethods;
 
-our $VERSION = '2.00';
+our $VERSION = '2.01';
 
 sub import
 {
@@ -83,6 +83,9 @@ sub iterator
 	my ( $i, $j ) = ( -1, -1 );
 
 	# caller gets back ( iterator count, closure ).
+	# the $j test also allows for while or for(;;)
+	# loops testing the return.
+
 	(
 		@$a * @$b,
 
@@ -94,6 +97,7 @@ sub iterator
 			$j < @$b ? [ $a->[$i], $b->[$j] ] : ()
 		}
 	)
+
 }
 
 
@@ -216,8 +220,6 @@ multimethod qbop =>
 ) ) =>
 sub
 {
-	# return all map { qbop(@$_, $_[2]) } cross $_[0], $_[1];
-
 	my ( $count, $iter ) = iterator @_[0,1];
 
 	all map { qbop(@{$iter->()}, $_[2]) } (1..$count);
@@ -231,8 +233,6 @@ multimethod qbop =>
 ) ) =>
 sub
 {
-	# return any map { qbop(@$_, $_[2]) } cross $_[0], $_[1]
-
 	my ( $count, $iter ) = iterator( @_[0,1] );
 
 	any map { qbop(@{$iter->()}, $_[2]) } (1..$count);

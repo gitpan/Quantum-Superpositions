@@ -25,6 +25,10 @@ Revision history for Perl extension Quantum::Superpositions.
 
 	- Fixed argument passing to superimposed subroutines.
 
+1.04
+1.05
+	- Doc bugs, change ownership.
+
 2.00	Sat Apr  5 23:41:39 CST 2003
 
 - Replaced the cross product with an iterator. this means
@@ -43,4 +47,6 @@ Revision history for Perl extension Quantum::Superpositions.
 - Replaced naked strings with qw's necessary to accomodate
   strict.
 
-Still need to update a few doc bugs.
+2.01	Tue Apr 22 17:45:31 CDT 2003
+
+- Added diskfree to the demos.
