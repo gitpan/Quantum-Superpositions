@@ -1,9 +1,8 @@
 Revision history for Perl extension Quantum::Superpositions.
 
 0.01  Wed Sep 10 10:34:42 1997
+
 	- original version; created by h2xs 1.18
-
-
 
 1.01	Thu Aug 10 09:28:34 2000
 
@@ -24,3 +23,18 @@ Revision history for Perl extension Quantum::Superpositions.
 1.03	Fri Aug 11 05:49:28 2000
 
 	- Fixed argument passing to superimposed subroutines.
+
+
+1.04	Thu Aug 17 06:10:02 2000
+
+	- Added Makefile.pm PREREQ_PM for Class::Multimethods (again!)
+
+UNRELEASED CHANGES
+
+	- Added Makefile.pm PREREQ_PM for Class::Multimethods
+	  (yet again -- Arrrrrrrrggggghhhhhhhh!)
+
+	- Added AUTOLOAD so it's now possible to call methods on superimposed 
+	  objects
+
+	- Patched around annoying changes in base.pm (thanks Jeremy)

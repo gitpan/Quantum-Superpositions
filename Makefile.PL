@@ -1,6 +1,8 @@
 
 use ExtUtils::MakeMaker;
 WriteMakefile(
-		NAME	=> 'Quantum::Superpositions',
-		VERSION => '1.03',
+		NAME	=> q[Quantum::Superpositions],
+		VERSION => q[1.04],
+		PREREQ_PM => {'Class::Multimethods' => 0 },
+
 	     );

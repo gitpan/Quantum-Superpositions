@@ -1,4 +1,5 @@
-package Quantum::Superpositions; $VERSION = '1.03';
+package Quantum::Superpositions;
+$VERSION = '1.04';
 use Carp;
 
 sub debug { 
@@ -74,10 +75,19 @@ sub import {
 	1;
 }
 
-sub any   { bless [@_], Quantum::Superpositions::Disj }
-sub all   { bless [@_], Quantum::Superpositions::Conj }
+sub qsbless {
+	my ($ref, $class) = @_;
+	my %states; @states{@$ref}=();
+	# return if keys %states == 0;
+	return $ref->[0] if keys %states == 1;
+	return bless $ref, $class;
+}
 
-sub all_true { bless [@_], Quantum::Superpositions::Conj::True }
+sub any { qsbless [@_], Quantum::Superpositions::Disj }
+sub all { qsbless [@_], Quantum::Superpositions::Conj }
+
+sub all_true { qsbless [@_], Quantum::Superpositions::Conj::True }
+sub any_comp { qsbless [@_], Quantum::Superpositions::Disj::Comp }
 
 sub cross {
 	my @product;
@@ -164,7 +174,7 @@ multimethod qblop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::C
                 }
 		return any() unless $matched;
         }
-        return any @dstates[grep { $dokay[$_] == @cstates } (0..$#dstates)];
+        return any_comp @dstates[grep { $dokay[$_] == @cstates } (0..$#dstates)];
 };
 
 multimethod qblop => ( Quantum::Superpositions::Conj, '*', CODE ) => sub {
@@ -184,19 +194,19 @@ multimethod qblop => ( '*', Quantum::Superpositions::Conj, CODE ) => sub {
 multimethod qblop => ( Quantum::Superpositions::Disj, '*', CODE ) => sub {
 	&debug;
 	return any() unless @{$_[0]};
-	return any grep { istrue(qblop($_, $_[1], $_[2])) } @{$_[0]};
+	return any_comp grep { istrue(qblop($_, $_[1], $_[2])) } @{$_[0]};
 };
 
 multimethod qblop => ( '*', Quantum::Superpositions::Disj, CODE ) => sub {
 	&debug;
 	return any() unless @{$_[1]};
-	return any grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
+	return any_comp grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
 };
 
 multimethod qblop => ( Quantum::Superpositions::Disj, Quantum::Superpositions::Disj, CODE ) => sub {
 	&debug;
 	return any() unless @{$_[0]} && @{$_[1]};
-	return any grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
+	return any_comp grep { istrue(qblop($_[0], $_, $_[2])) } @{$_[1]};
 };
 
 multimethod qblop => ( '*', '*', CODE ) => sub {
@@ -248,7 +258,7 @@ use overload
 	q{~}	=>  sub { $_[0]->quop(sub { ~$_[0]     })},
 
         q{&{}}  =>  sub { my $s = shift;
-                          return sub { bless [map {$_->(@_)} @$s], ref $s }
+                          return sub { qsbless [map {$_->(@_)} @$s], ref $s }
                         },
 
 	q{!}	=>  sub { $_[0]->qulop(sub { !$_[0]     })},
@@ -257,6 +267,13 @@ use overload
 	q{""}	=>  'qstr',
 	q{0+}	=>  'qnum',
 	;
+
+sub AUTOLOAD { # METHODS
+        my $s = shift;
+	$AUTOLOAD =~ s/.*:://;
+        return qsbless [map {$_->$AUTOLOAD(@_)} @$s], ref $s if wantarray;
+        return qsbless [map {scalar $_->$AUTOLOAD(@_)} @$s], ref $s;
+}
 
 
 multimethod collapse => ( Quantum::Superpositions ) => sub {
@@ -277,11 +294,12 @@ sub eigenstates($) {
 	my %uniq;
 	@uniq{collapse($self)} = ();
 	local $^W=1;
-	return @{$eigencache{$eigencache_id}} = grep {
+	@{$eigencache{$eigencache_id}} = grep {
 		      my $okay=1;
 		      local $SIG{__WARN__} = sub {$okay=0};
 		      istrue($self eq $_) || istrue($self == $_) && $okay
 		    } keys %uniq;
+	return @{$eigencache{$eigencache_id}};
 }
 
 sub DESTROY {
@@ -310,11 +328,13 @@ multimethod istrue => () => sub {
  	return 0;
 };
 
-sub qbool { $_[0]->eigenstates ? 1 : 0; }
 sub qnum  { my @states = $_[0]->eigenstates; return $states[rand @states] }
 
 package Quantum::Superpositions::Disj;
+$VERSION = '1.04';
 use base 'Quantum::Superpositions';
+
+sub qbool { scalar grep { !!$_ } @{$_[0]} }
 
 sub qstr { my @eigenstates = $_[0]->eigenstates;
 	   return "@eigenstates" if @eigenstates == 1;
@@ -328,9 +348,16 @@ sub qulop {
 	return Quantum::Superpositions::any(grep { $_[1]->($_) } @{$_[0]});
 };
 
+package Quantum::Superpositions::Disj::Comp;
+$VERSION = '1.04';
+use base 'Quantum::Superpositions::Disj';
+sub qbool { $_[0]->eigenstates ? 1 : 0; }
 
 package Quantum::Superpositions::Conj;
+$VERSION = '1.04';
 use base 'Quantum::Superpositions';
+
+sub qbool { $_[0]->eigenstates ? 1 : 0; }
 
 sub qstr { my @eigenstate = $_[0]->eigenstates;
 	   return "@eigenstate" if @eigenstate;
@@ -347,6 +374,7 @@ sub qulop {
 
 
 package Quantum::Superpositions::Conj::True;
+$VERSION = '1.04';
 use base 'Quantum::Superpositions::Conj';
 
 sub qbool { 1 }
@@ -361,8 +389,8 @@ Quantum::Superpositions - QM-like superpositions in Perl
 
 =head1 VERSION
 
-This document describes version 1.03 of Quantum::Superpositions,
-released August 11, 2000.
+This document describes version 1.04 of Quantum::Superpositions,
+released May 15, 2002.
 
 =head1 SYNOPSIS
 
@@ -885,7 +913,7 @@ or in every target simultaneously:
 
 =head1 AUTHOR
 
-Damian Conway (damian@conway.org)
+Steven Lembark (lembark@wrkhros.com)
 
 =head1 BUGS
 
@@ -894,7 +922,7 @@ Bug reports and other feedback are most welcome.
 
 =head1 COPYRIGHT
 
-Copyright (c) 1998-2000, Damian Conway. All Rights Reserved.
+Copyright (c) 1998-2002, Steven Lembark. All Rights Reserved.
 This module is free software. It may be used, redistributed
 and/or modified under the terms of the Perl Artistic License
   (see http://www.perl.com/perl/misc/Artistic.html)
